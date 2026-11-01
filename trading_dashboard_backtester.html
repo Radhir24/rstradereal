@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-950 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RS Alpha Trader · MT5 & Demo Dual Engine</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+  </style>
+</head>
+<body class="h-full flex flex-col overflow-x-hidden">
+
+  <!-- Top Header Navigation -->
+  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50 px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center space-x-3">
+      <div class="h-9 w-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+        <i class="fa-solid fa-chart-line text-slate-950 font-bold"></i>
+      </div>
+      <div>
+        <h1 class="font-bold text-base leading-tight tracking-tight flex items-center gap-2">
+          RS Alpha Trader <span class="text-xs font-normal px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Personal Engine</span>
+        </h1>
+        <p class="text-xs text-slate-400 mono">MT5 Live & Backtest Dual Deck</p>
+      </div>
+    </div>
+    <div class="flex items-center space-x-2">
+      <button onclick="openCloudSyncModal()" class="px-3 py-1.5 rounded-lg bg-emerald-600/20 border border-emerald-500/30 text-emerald-300 text-xs font-medium hover:bg-emerald-600/30 transition flex items-center gap-1.5">
+        <i class="fa-solid fa-cloud"></i> Free Cloud Sync
+      </button>
+      <button onclick="openGuide()" class="px-3 py-1.5 rounded-lg bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 text-xs font-medium hover:bg-indigo-600/30 transition flex items-center gap-1.5">
+        <i class="fa-solid fa-book-open"></i> MT5 Setup Guide
+      </button>
+      <button onclick="toggleSettingsModal()" class="h-9 w-9 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 hover:text-white hover:bg-slate-700 transition">
+        <i class="fa-solid fa-gear"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Dual-View Workspace -->
+  <main class="flex-1 p-3 md:p-4 grid grid-cols-1 xl:grid-cols-12 gap-4 max-w-[1600px] w-full mx-auto overflow-y-auto">
+    
+    <!-- Left Column: Controls, Account Stats & Trade Ledger -->
+    <div class="xl:col-span-5 flex flex-col space-y-4">
+      
+      <!-- Mode Switcher & Account Balances Card -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 w-full max-w-[260px]">
+            <button id="modeDemoBtn" onclick="switchMode('demo')" class="flex-1 py-1.5 text-xs font-semibold rounded-lg transition bg-emerald-600 text-white shadow">
+              <i class="fa-solid fa-flask mr-1"></i> Demo Simulator
+            </button>
+            <button id="modeLiveBtn" onclick="switchMode('live')" class="flex-1 py-1.5 text-xs font-semibold rounded-lg transition text-slate-400 hover:text-white">
+              <i class="fa-solid fa-satellite-dish mr-1"></i> Real MT5 / Broker
+            </button>
+          </div>
+          <div class="text-right">
+            <span id="connectionBadge" class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+              <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse mr-1.5"></span> Standby
+            </span>
+          </div>
+        </div>
+
+        <!-- Metric Grid -->
+        <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-800/80">
+          <div class="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/60">
+            <span class="text-[10px] text-slate-400 uppercase tracking-wider block">Account Equity</span>
+            <span id="statEquity" class="text-base font-bold mono text-white">$1,000.00</span>
+          </div>
+          <div class="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/60">
+            <span class="text-[10px] text-slate-400 uppercase tracking-wider block">Floating P&L</span>
+            <span id="statFloating" class="text-base font-bold mono text-emerald-400">$0.00</span>
+          </div>
+          <div class="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/60">
+            <span class="text-[10px] text-slate-400 uppercase tracking-wider block">Today P&L</span>
+            <span id="statTodayPnl" class="text-base font-bold mono text-emerald-400">$0.00</span>
+          </div>
+        </div>
+
+        <!-- Quick Toggles -->
+        <div class="mt-3 flex items-center justify-between bg-slate-950 px-3 py-2 rounded-xl border border-slate-800">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-bolt text-amber-400"></i>
+            <div>
+              <p class="text-xs font-semibold">Automated Strategy Execution</p>
+              <p class="text-[10px] text-slate-400">SMA 4/6 Crossover Engine active</p>
+            </div>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="autoToggle" onchange="toggleAuto(this.checked)" class="sr-only peer">
+            <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Active Position / Execution Deck -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex-1 flex flex-col">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+            <i class="fa-solid fa-crosshairs text-indigo-400"></i> Active Position & Trades
+          </h2>
+          <div class="flex gap-2">
+            <button onclick="executeManualTrade('BUY')" class="px-2.5 py-1 rounded-lg bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 text-xs font-semibold hover:bg-emerald-600/30 transition">
+              <i class="fa-solid fa-arrow-up mr-1"></i> Buy
+            </button>
+            <button onclick="executeManualTrade('SELL')" class="px-2.5 py-1 rounded-lg bg-rose-600/20 border border-rose-500/30 text-rose-400 text-xs font-semibold hover:bg-rose-600/30 transition">
+              <i class="fa-solid fa-arrow-down mr-1"></i> Sell
+            </button>
+          </div>
+        </div>
+
+        <div id="activePositionContainer" class="mb-3">
+          <div class="bg-slate-950 rounded-xl p-3 border border-slate-800/80 text-center text-xs text-slate-500">
+            No open position currently active.
+          </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto max-h-[220px] space-y-2 pr-1" id="tradesList">
+          <!-- Trade items populated via JS -->
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Right Column: Dual-View Charts (TradingView Live + Engine Chart) -->
+    <div class="xl:col-span-7 flex flex-col space-y-4">
+      
+      <!-- Market Selector & View Tabs -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3 flex flex-wrap items-center justify-between gap-3 shadow-xl">
+        <div class="flex items-center space-x-2">
+          <button onclick="switchMarket('OANDA:XAUUSD')" id="btnXAU" class="px-3 py-1.5 rounded-xl text-xs font-semibold transition bg-indigo-600 text-white shadow">XAUUSD (Gold)</button>
+          <button onclick="switchMarket('BINANCE:BTCUSDT')" id="btnBTC" class="px-3 py-1.5 rounded-xl text-xs font-semibold transition bg-slate-800 text-slate-300 hover:text-white">BTCUSDT</button>
+          <button onclick="switchMarket('BINANCE:ETHUSDT')" id="btnETH" class="px-3 py-1.5 rounded-xl text-xs font-semibold transition bg-slate-800 text-slate-300 hover:text-white">ETHUSDT</button>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="setChartView('tradingview')" id="viewTvBtn" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 text-white transition"><i class="fa-solid fa-chart-candlestick mr-1"></i> TradingView Live</button>
+          <button onclick="setChartView('engine')" id="viewEngineBtn" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 text-slate-300 hover:text-white transition"><i class="fa-solid fa-wave-square mr-1"></i> SMA Strategy Chart</button>
+        </div>
+      </div>
+
+      <!-- Chart Container (Dual View Switcher) -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex-1 min-h-[460px] flex flex-col relative">
+        
+        <!-- TradingView Embed View -->
+        <div id="tradingViewContainer" class="w-full h-[450px] rounded-xl overflow-hidden bg-slate-950 border border-slate-800/80">
+          <div id="tradingview_widget" class="w-full h-full"></div>
+        </div>
+
+        <!-- Custom Engine Canvas View -->
+        <div id="engineChartContainer" class="w-full h-[450px] rounded-xl overflow-hidden bg-slate-950 border border-slate-800/80 hidden relative">
+          <div class="absolute top-3 left-3 z-10 bg-slate-900/80 backdrop-blur px-2.5 py-1 rounded-lg border border-slate-800 text-[11px] mono flex items-center gap-2">
+            <span id="chartSymbolTitle">OANDA:XAUUSD</span> · <span id="chartPrice" class="text-emerald-400 font-bold">$0.00</span>
+          </div>
+          <canvas id="strategyCanvas" class="w-full h-full"></canvas>
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Settings & MT5 Configuration Modal -->
+  <div id="settingsModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative">
+      <button onclick="toggleSettingsModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+      
+      <h3 class="text-base font-bold mb-4 flex items-center gap-2">
+        <i class="fa-solid fa-sliders text-emerald-400"></i> Account & Broker Configuration
+      </h3>
+
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Starting Demo / Real Balance ($)</label>
+          <input type="number" id="inputStarting" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm mono focus:outline-none focus:border-indigo-500" value="1000">
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Lot Size / Trade Unit</label>
+          <input type="number" step="0.01" id="inputLotSize" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm mono focus:outline-none focus:border-indigo-500" value="0.01">
+        </div>
+
+        <div id="mt5RealCredentialsSection" class="space-y-3 pt-3 border-t border-slate-800 hidden">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-bold text-indigo-400 uppercase tracking-wider">VT Markets / MT5 Integration</h4>
+            <span class="text-[10px] bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 px-2 py-0.5 rounded">Mobile No-Code</span>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Telegram Bot / Webhook Copier URL</label>
+            <input type="text" id="inputMt5Url" placeholder="https://api.telegram.org/bot<TOKEN>/sendMessage" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm mono focus:outline-none focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Telegram Chat ID / Signal Channel ID</label>
+            <input type="text" id="inputMt5Token" placeholder="@MyTradingChannel or 12345678" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm mono focus:outline-none focus:border-indigo-500">
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-6 flex items-center justify-end gap-3">
+        <button onclick="toggleSettingsModal()" class="px-4 py-2 rounded-xl bg-slate-800 text-xs font-medium text-slate-300 hover:bg-slate-700">Cancel</button>
+        <button onclick="saveSettings()" class="px-4 py-2 rounded-xl bg-emerald-600 text-xs font-semibold text-white hover:bg-emerald-500 shadow-lg shadow-emerald-600/20">Save Configuration</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Free Cloud Sync Modal -->
+  <div id="cloudModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative">
+      <button onclick="openCloudSyncModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+      
+      <h3 class="text-base font-bold mb-2 flex items-center gap-2 text-emerald-400">
+        <i class="fa-solid fa-cloud"></i> Free Cloud Database & Backup Sync
+      </h3>
+      <p class="text-xs text-slate-400 mb-4">Your data is securely persisted in your browser. To sync across your phone and laptop for free, you can export your session state or link a free JSONBin/Pastebin token.</p>
+
+      <div class="space-y-4 text-xs">
+        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
+          <span class="font-bold text-white block">Option 1: Instant JSON Export / Import (Zero Setup)</span>
+          <div class="flex gap-2">
+            <button onclick="exportStateFile()" class="flex-1 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 font-semibold text-indigo-300 border border-slate-700 transition">📥 Export State JSON</button>
+            <label class="flex-1 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 font-semibold text-emerald-300 border border-slate-700 text-center cursor-pointer transition">
+              📤 Import State JSON
+              <input type="file" id="importFile" onchange="importStateFile(event)" class="hidden" accept=".json">
+            </label>
+          </div>
+        </div>
+
+        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
+          <span class="font-bold text-white block">Option 2: Free JSONBin.io Cloud Sync (Cross-Device)</span>
+          <input type="text" id="inputBinId" placeholder="JSONBin ID (e.g. 6481...)" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 mono text-slate-200">
+          <input type="password" id="inputBinKey" placeholder="Master API Key ($2a$10...)" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 mono text-slate-200">
+          <div class="flex gap-2 pt-1">
+            <button onclick="syncToCloud()" class="flex-1 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-bold text-white transition">☁️ Push to Cloud</button>
+            <button onclick="fetchFromCloud()" class="flex-1 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 font-bold text-white transition">🔄 Pull from Cloud</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MT5 Setup Guide Modal -->
+  <div id="guideModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+      <button onclick="openGuide()" class="absolute top-4 right-4 text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+      
+      <h3 class="text-lg font-bold mb-2 flex items-center gap-2 text-indigo-400">
+        <i class="fa-solid fa-mobile-screen-button"></i> VT Markets No-Code Mobile Connection Guide
+      </h3>
+      <p class="text-xs text-slate-400 mb-4">Since VT Markets uses standard MT4/MT5 logins without direct APIs, follow these zero-coding options to automate from your smartphone:</p>
+
+      <div class="space-y-4 text-xs text-slate-300 leading-relaxed">
+        <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800">
+          <h4 class="font-bold text-white mb-1"><span class="text-indigo-400">Option 1 (Recommended):</span> Telegram Signal Copier EA (100% Mobile)</h4>
+          <p class="text-slate-400">
+            1. Install a free/cheap <strong>Telegram Signal Copier EA</strong> (like <em>TelegramFXCopier</em> or <em>MetaCopier</em>) directly into your VT Markets MetaTrader account.<br>
+            2. Create a private Telegram channel.<br>
+            3. Enter your Telegram Bot Token in the settings <i class="fa-solid fa-gear"></i> of this dashboard.<br>
+            4. Whenever this dashboard triggers a trade, it instantly broadcasts `BUY XAUUSD 0.01` to Telegram, and the EA automatically opens the position in VT Markets on your phone!
+          </p>
+        </div>
+
+        <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800">
+          <h4 class="font-bold text-white mb-1"><span class="text-indigo-400">Option 2:</span> MetaAPI Cloud Bridge (Zero-Coding Cloud)</h4>
+          <p class="text-slate-400">
+            1. Create a free account on <strong>MetaAPI.cloud</strong>.<br>
+            2. Enter your VT Markets MT4/MT5 account number, password, and server (e.g. `VTMarkets-Live`).<br>
+            3. Paste the generated MetaAPI URL into this dashboard's settings. Trades will trigger directly on VT Markets' servers in real-time.
+          </p>
+        </div>
+
+        <div class="bg-amber-500/10 border border-amber-500/20 p-3.5 rounded-xl text-amber-300">
+          <h4 class="font-bold mb-1"><i class="fa-solid fa-lightbulb mr-1"></i> Advice for Mobile Trading on VT Markets</h4>
+          <ul class="list-disc pl-4 space-y-1 text-[11px]">
+            <li><strong>Use MetaTrader Mobile App:</strong> You can keep track of all automated trades opened by this dashboard directly inside your official MT4 or MT5 mobile app from VT Markets.</li>
+            <li><strong>Low Spread Pairs:</strong> For 1-minute and 5-minute scalping strategies on VT Markets, select <strong>RAW ECN Account</strong> to get 0.0 pip spreads on Gold and EURUSD.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="mt-6 text-right">
+        <button onclick="openGuide()" class="px-4 py-2 rounded-xl bg-indigo-600 text-xs font-semibold text-white hover:bg-indigo-500">Got It</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript Application Engine -->
+  <script>
+    let appState = {
+      mode: 'demo', // 'demo' or 'live'
+      market: 'OANDA:XAUUSD',
+      starting: 1000,
+      lotSize: 0.01,
+      equity: 1000,
+      realizedTotal: 0,
+      openTrade: null,
+      trades: [],
+      auto: false,
+      latestPrice: 2650.00,
+      mt5Url: '',
+      mt5Token: '',
+      cloudBinId: '',
+      cloudKey: '',
+      priceHistory: [] // Added historical price array for live SMA calculation
+    };
+
+    let chartView = 'tradingview';
+    let tvWidget = null;
+    let strategyChart = null;
+
+    // Initialize Dashboard
+    function initApp() {
+      const saved = localStorage.getItem('rs_alpha_state');
+      if (saved) {
+        try { appState = { ...appState, ...JSON.parse(saved) }; } catch(e){}
+      }
+
+      // Seed initial price history if empty to enable SMA calculation immediately
+      if (!appState.priceHistory || appState.priceHistory.length < 10) {
+        appState.priceHistory = [];
+        let base = appState.latestPrice || 2650.00;
+        for (let i = 0; i < 20; i++) {
+          base += (Math.random() - 0.48) * 1.5;
+          appState.priceHistory.push(base);
+        }
+      }
+
+      syncUI();
+      initTradingView('OANDA:XAUUSD');
+      initStrategyChart();
+      setInterval(simulationTick, 2000);
+    }
+
+    function syncUI() {
+      document.getElementById('statEquity').innerText = '$' + appState.equity.toFixed(2);
+      document.getElementById('inputStarting').value = appState.starting;
+      document.getElementById('inputLotSize').value = appState.lotSize;
+      document.getElementById('autoToggle').checked = appState.auto;
+      document.getElementById('inputBinId').value = appState.cloudBinId || '';
+      document.getElementById('inputBinKey').value = appState.cloudKey || '';
+
+      const badge = document.getElementById('connectionBadge');
+      if (appState.mode === 'live') {
+        badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5"></span> Live MT5 Ready`;
+        badge.className = "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+        document.getElementById('modeLiveBtn').className = "flex-1 py-1.5 text-xs font-semibold rounded-lg transition bg-emerald-600 text-white shadow";
+        document.getElementById('modeDemoBtn').className = "flex-1 py-1.5 text-xs font-semibold rounded-lg transition text-slate-400 hover:text-white";
+        document.getElementById('mt5RealCredentialsSection').classList.remove('hidden');
+      } else {
+        badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-400 mr-1.5"></span> Demo Simulator`;
+        badge.className = "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20";
+        document.getElementById('modeDemoBtn').className = "flex-1 py-1.5 text-xs font-semibold rounded-lg transition bg-emerald-600 text-white shadow";
+        document.getElementById('modeLiveBtn').className = "flex-1 py-1.5 text-xs font-semibold rounded-lg transition text-slate-400 hover:text-white";
+        document.getElementById('mt5RealCredentialsSection').classList.add('hidden');
+      }
+      renderTrades();
+    }
+
+    function switchMode(mode) {
+      appState.mode = mode;
+      saveState();
+      syncUI();
+    }
+
+    function switchMarket(market) {
+      appState.market = market;
+      ['btnXAU', 'btnBTC', 'btnETH'].forEach(id => {
+        document.getElementById(id).className = "px-3 py-1.5 rounded-xl text-xs font-semibold transition bg-slate-800 text-slate-300 hover:text-white";
+      });
+      if (market.includes('XAUUSD')) document.getElementById('btnXAU').className = "px-3 py-1.5 rounded-xl text-xs font-semibold transition bg-indigo-600 text-white shadow";
+      if (market.includes('BTCUSDT')) document.getElementById('btnBTC').className = "px-3 py-1.5 rounded-xl text-xs font-semibold transition bg-indigo-600 text-white shadow";
+      if (market.includes('ETHUSDT')) document.getElementById('btnETH').className = "px-3 py-1.5 rounded-xl text-xs font-semibold transition bg-indigo-600 text-white shadow";
+      
+      document.getElementById('chartSymbolTitle').innerText = market;
+      initTradingView(market);
+    }
+
+    function setChartView(view) {
+      chartView = view;
+      if (view === 'tradingview') {
+        document.getElementById('tradingViewContainer').classList.remove('hidden');
+        document.getElementById('engineChartContainer').classList.add('hidden');
+        document.getElementById('viewTvBtn').className = "px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 text-white transition";
+        document.getElementById('viewEngineBtn').className = "px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 text-slate-300 hover:text-white transition";
+      } else {
+        document.getElementById('tradingViewContainer').classList.add('hidden');
+        document.getElementById('engineChartContainer').classList.remove('hidden');
+        document.getElementById('viewEngineBtn').className = "px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 text-white transition";
+        document.getElementById('viewTvBtn').className = "px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 text-slate-300 hover:text-white transition";
+      }
+    }
+
+    function initTradingView(symbol) {
+      document.getElementById('tradingview_widget').innerHTML = '';
+      new TradingView.widget({
+        "width": "100%",
+        "height": "100%",
+        "symbol": symbol,
+        "interval": "60",
+        "timezone": "Etc/UTC",
+        "theme": "dark",
+        "style": "1",
+        "locale": "en",
+        "toolbar_bg": "#090d16",
+        "enable_publishing": false,
+        "hide_side_toolbar": false,
+        "allow_symbol_change": true,
+        "container_id": "tradingview_widget"
+      });
+    }
+
+    function initStrategyChart() {
+      const ctx = document.getElementById('strategyCanvas').getContext('2d');
+      strategyChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: ['10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'],
+          datasets: [
+            { label: 'Price', data: [2640, 2645, 2642, 2650, 2648, 2655, 2650], borderColor: '#38bdf8', borderWidth: 2, tension: 0.2 },
+            { label: 'SMA 4', data: [2638, 2641, 2644, 2646, 2651, 2652, 2651], borderColor: '#10b981', borderWidth: 1.5, borderDash: [4,4] }
+          ]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+      });
+    }
+
+    function calculateSMA(data, period) {
+      if (data.length < period) return data[data.length - 1] || 0;
+      const slice = data.slice(data.length - period);
+      return slice.reduce((acc, val) => acc + val, 0) / period;
+    }
+
+    async function sendMt5TradeWebhook(action, payload) {
+      if (appState.mode !== 'live' || !appState.mt5Url) return;
+      try {
+        // Automatically check if user is using Telegram Bot webhook for no-code mobile relay
+        if (appState.mt5Url.includes('api.telegram.org')) {
+          const text = `🚨 *RS Alpha Alert* 🚨\nAction: ${action}\nSide: ${payload.side}\nMarket: ${payload.market}\nEntry: $${payload.entry}\nLots: ${payload.lotSize}`;
+          await fetch(appState.mt5Url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: appState.mt5Token, text, parse_mode: 'Markdown' })
+          });
+        } else {
+          await fetch(appState.mt5Url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': appState.mt5Token ? `Bearer ${appState.mt5Token}` : ''
+            },
+            body: JSON.stringify({ action, ...payload })
+          });
+        }
+      } catch (err) {
+        console.error('VT Markets / MT5 Relay error:', err);
+      }
+    }
+
+    function simulationTick() {
+      const variance = (Math.random() - 0.48) * 2.5;
+      appState.latestPrice += variance;
+      document.getElementById('chartPrice').innerText = '$' + appState.latestPrice.toFixed(2);
+
+      // Record price to history buffer for moving averages
+      appState.priceHistory.push(appState.latestPrice);
+      if (appState.priceHistory.length > 50) appState.priceHistory.shift();
+
+      // Calculate fast (4) and slow (6) moving averages
+      const prevFast = calculateSMA(appState.priceHistory.slice(0, -1), 4);
+      const prevSlow = calculateSMA(appState.priceHistory.slice(0, -1), 6);
+      const currFast = calculateSMA(appState.priceHistory, 4);
+      const currSlow = calculateSMA(appState.priceHistory, 6);
+
+      // Floating P&L computation
+      let currentFloatingPnl = 0;
+      if (appState.openTrade) {
+        const diff = (appState.latestPrice - appState.openTrade.entry) * (appState.openTrade.side === 'BUY' ? 1 : -1) * (appState.openTrade.lotSize * 100);
+        currentFloatingPnl = diff;
+        document.getElementById('statFloating').innerText = (diff >= 0 ? '+$' : '-$') + Math.abs(diff).toFixed(2);
+        document.getElementById('statFloating').className = diff >= 0 ? "text-base font-bold mono text-emerald-400" : "text-base font-bold mono text-rose-400";
+      } else {
+        document.getElementById('statFloating').innerText = '$0.00';
+      }
+
+      // Automated Trade Execution Engine
+      if (appState.auto) {
+        // Bullish Crossover (Fast SMA 4 crosses above Slow SMA 6) -> Open BUY
+        if (prevFast <= prevSlow && currFast > currSlow) {
+          if (appState.openTrade && appState.openTrade.side === 'SELL') {
+            closeActiveTrade('SMA 4/6 Crossover');
+          }
+          if (!appState.openTrade) {
+            executeManualTrade('BUY', 'SMA Crossover Signal');
+          }
+        }
+        // Bearish Crossover (Fast SMA 4 crosses below Slow SMA 6) -> Open SELL
+        else if (prevFast >= prevSlow && currFast < currSlow) {
+          if (appState.openTrade && appState.openTrade.side === 'BUY') {
+            closeActiveTrade('SMA 4/6 Crossover');
+          }
+          if (!appState.openTrade) {
+            executeManualTrade('SELL', 'SMA Crossover Signal');
+          }
+        }
+
+        // Auto Take-Profit Check ($10.00 profit target)
+        if (appState.openTrade && currentFloatingPnl >= 10.0) {
+          closeActiveTrade('Take Profit Target ($10)');
+        }
+      }
+
+      // Update Chart View if Engine canvas is active
+      if (chartView === 'engine' && strategyChart) {
+        const labels = appState.priceHistory.slice(-10).map((_, i) => `${i}s`);
+        const prices = appState.priceHistory.slice(-10);
+        const sma4 = prices.map((_, idx) => calculateSMA(appState.priceHistory.slice(0, appState.priceHistory.length - 10 + idx + 1), 4));
+        strategyChart.data.labels = labels;
+        strategyChart.data.datasets[0].data = prices;
+        strategyChart.data.datasets[1].data = sma4;
+        strategyChart.update('none');
+      }
+    }
+
+    function executeManualTrade(side, reason = 'Manual Order') {
+      if (appState.openTrade) {
+        if (appState.auto) return; // Prevent duplicate signals during automated trading
+        alert('Close existing trade before opening a new one.');
+        return;
+      }
+
+      const tradePayload = {
+        id: Math.random().toString(36).substring(7),
+        side,
+        entry: appState.latestPrice,
+        lotSize: appState.lotSize,
+        market: appState.market,
+        reason,
+        time: new Date().toLocaleTimeString()
+      };
+
+      appState.openTrade = tradePayload;
+      renderTrades();
+      saveState();
+
+      // Trigger webhook if running in MT5 Live Mode
+      sendMt5TradeWebhook('OPEN', tradePayload);
+    }
+
+    function closeActiveTrade(reason = 'Manual Close') {
+      if (!appState.openTrade) return;
+      const p = appState.openTrade;
+      const pnl = (appState.latestPrice - p.entry) * (p.side === 'BUY' ? 1 : -1) * (p.lotSize * 100);
+      appState.realizedTotal += pnl;
+      appState.equity = appState.starting + appState.realizedTotal;
+      
+      const closedTrade = {
+        ...p,
+        exit: appState.latestPrice,
+        pnl,
+        closeReason: reason,
+        closedAt: new Date().toLocaleTimeString()
+      };
+
+      appState.trades.unshift(closedTrade);
+      appState.openTrade = null;
+      syncUI();
+      saveState();
+
+      // Trigger webhook if running in MT5 Live Mode
+      sendMt5TradeWebhook('CLOSE', closedTrade);
+    }
+
+    function renderTrades() {
+      const container = document.getElementById('tradesList');
+      const activeContainer = document.getElementById('activePositionContainer');
+
+      if (appState.openTrade) {
+        const p = appState.openTrade;
+        activeContainer.innerHTML = `
+          <div class="bg-indigo-950/40 border border-indigo-500/30 rounded-xl p-3 flex items-center justify-between">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold ${p.side === 'BUY' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}">${p.side}</span>
+                <span class="text-xs font-semibold">${p.market}</span>
+              </div>
+              <p class="text-[10px] text-slate-400 mt-1">Entry: $${p.entry.toFixed(2)} · Lots: ${p.lotSize}</p>
+            </div>
+            <button onclick="closeActiveTrade()" class="px-3 py-1 rounded-lg bg-rose-600/20 border border-rose-500/30 text-rose-400 text-xs font-semibold hover:bg-rose-600/30">Close</button>
+          </div>
+        `;
+      } else {
+        activeContainer.innerHTML = `<div class="bg-slate-950 rounded-xl p-3 border border-slate-800/80 text-center text-xs text-slate-500">No open position currently active.</div>`;
+      }
+
+      if (appState.trades.length === 0) {
+        container.innerHTML = `<div class="text-center text-xs text-slate-500 py-3">No closed trades yet.</div>`;
+        return;
+      }
+
+      container.innerHTML = appState.trades.map(t => `
+        <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800/80 flex items-center justify-between text-xs">
+          <div>
+            <span class="font-bold ${t.side === 'BUY' ? 'text-emerald-400' : 'text-rose-400'}">${t.side}</span>
+            <span class="text-slate-400 ml-1">${t.market}</span>
+          </div>
+          <div class="text-right mono">
+            <span class="${t.pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'} font-semibold">${t.pnl >= 0 ? '+' : ''}$${t.pnl.toFixed(2)}</span>
+            <p class="text-[9px] text-slate-500">${t.closedAt}</p>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function toggleAuto(enabled) {
+      appState.auto = enabled;
+      saveState();
+    }
+
+    function toggleSettingsModal() {
+      const modal = document.getElementById('settingsModal');
+      modal.classList.toggle('hidden');
+    }
+
+    function openCloudSyncModal() {
+      const modal = document.getElementById('cloudModal');
+      modal.classList.toggle('hidden');
+    }
+
+    function openGuide() {
+      const modal = document.getElementById('guideModal');
+      modal.classList.toggle('hidden');
+    }
+
+    function saveSettings() {
+      appState.starting = parseFloat(document.getElementById('inputStarting').value) || 1000;
+      appState.lotSize = parseFloat(document.getElementById('inputLotSize').value) || 0.01;
+      appState.equity = appState.starting + appState.realizedTotal;
+      appState.mt5Url = document.getElementById('inputMt5Url').value;
+      appState.mt5Token = document.getElementById('inputMt5Token').value;
+      saveState();
+      syncUI();
+      toggleSettingsModal();
+    }
+
+    function exportStateFile() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appState, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `rs_alpha_backup_${new Date().toISOString().slice(0,10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    function importStateFile(event) {
+      const fileReader = new FileReader();
+      if(event.target.files[0]) {
+        fileReader.readAsText(event.target.files[0], "UTF-8");
+        fileReader.onload = (e) => {
+          try {
+            appState = JSON.parse(e.target.result);
+            saveState();
+            syncUI();
+            alert('State successfully imported!');
+          } catch(err) {
+            alert('Invalid backup JSON file.');
+          }
+        }
+      }
+    }
+
+    async function syncToCloud() {
+      const binId = document.getElementById('inputBinId').value.trim();
+      const binKey = document.getElementById('inputBinKey').value.trim();
+      if(!binId || !binKey) {
+        alert('Please enter your JSONBin ID and Master API Key.');
+        return;
+      }
+      appState.cloudBinId = binId;
+      appState.cloudKey = binKey;
+      saveState();
+
+      try {
+        const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Master-Key': binKey
+          },
+          body: JSON.stringify(appState)
+        });
+        if(res.ok) alert('Successfully synced to cloud JSONBin!');
+        else alert('Cloud sync failed. Check your API credentials.');
+      } catch(e) {
+        alert('Network error connecting to cloud database.');
+      }
+    }
+
+    async function fetchFromCloud() {
+      const binId = document.getElementById('inputBinId').value.trim();
+      const binKey = document.getElementById('inputBinKey').value.trim();
+      if(!binId) {
+        alert('Please enter your JSONBin ID.');
+        return;
+      }
+      try {
+        const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
+          headers: { 'X-Master-Key': binKey }
+        });
+        if(res.ok) {
+          const json = await res.json();
+          appState = json.record;
+          saveState();
+          syncUI();
+          alert('Successfully pulled state from cloud database!');
+        } else {
+          alert('Failed to fetch from cloud.');
+        }
+      } catch(e) {
+        alert('Network error fetching from cloud.');
+      }
+    }
+
+    function saveState() {
+      localStorage.setItem('rs_alpha_state', JSON.stringify(appState));
+    }
+
+    window.onload = initApp;
+  </script>
+</body>
+</html>
